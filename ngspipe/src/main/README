@@ -1,0 +1,46 @@
+---------------------
+README for ngspipe
+---------------------
+
+--------
+Files:
+--------
+1. ngspipe.py: the main program 
+2. config.py: configuration file for database files, variables and other info
+3. region.py: contains all the functions for region level annotations
+4. gene.py: contains all gene level annotation methods
+5. variant.py: contains all variant level annotation functions
+
+
+-------------
+Dependency:
+-------------
+1. python3.4 is installed
+2. perl is installed and needed by annovar
+3. Annovar is installed and should be on the system $PATH 
+4. All database files is downloaded to annovar default folder
+
+
+--------
+Usage:
+--------
+1. To get help: 
+	python3.4 ngspipe.py -h
+2. To annotate either vcf files or standard annovar input files:
+	python3.4 ngspipe.py -i input.txt -o outdir
+3. To time each operations:
+	python3.4 ngspipe.py -i input.txt -o outdir -t
+4. To remove all the temporary files:
+	python3.4 ngspipe.py -i input.txt -o outdir -r
+5. To expand refgene gene entries:
+	python3.4 ngspipe.py -i input.txt -o outdir -e
+
+	
+-------
+Test:
+-------
+1. Check input files' all columns: chr, start, end, ref, alt
+	range of values in those fields
+2. Use variants with unknown genetype and geneinfo to check gene annotations
+	negative
+3. Use postive files to check all levels of annotations
