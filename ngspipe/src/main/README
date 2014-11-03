@@ -34,13 +34,20 @@ Usage:
 	python3.4 ngspipe.py -i input.txt -o outdir -r
 5. To expand refgene gene entries:
 	python3.4 ngspipe.py -i input.txt -o outdir -e
-
+5. To merge geneinfs from refgene, knowngene, and ensgene:
+	python3.4 ngspipe.py -i input.txt -o outdir -m
 	
 -------
 Test:
 -------
-1. Check input files' all columns: chr, start, end, ref, alt
+1. Check input files' all columns: [chr, start, end, ref, alt]
 	range of values in those fields
-2. Use variants with unknown genetype and geneinfo to check gene annotations
-	negative
-3. Use postive files to check all levels of annotations
+2. Use variants with unknown variant_class and geneinfo to check gene 
+   annotations
+3. Use postive/negative files to check all levels of annotations
+
+---------
+Issues:
+---------
+1. Variants Join with HGMD only on [chr, start, end]. This increase the sensitivity,
+
