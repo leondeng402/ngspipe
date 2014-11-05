@@ -4,7 +4,7 @@
 #    anv.py:  the file contains all the gene level functions related to 
 #             annovar
 #    author:  Liyong Deng
-#    copyright (c) 2014 by Liyong Deng in Dr. Chung's Lab
+#    copyright (c) 2014 by Liyong Deng
 #
 #####################################################################
 import os
@@ -30,7 +30,6 @@ def fetch_refgene(inputfile, rflag): # return a DataFrame
     exn_df = pd.read_csv(result, header=None, names=config.refgene_exn_header,\
                          sep='\t', usecols=config.refgene_exn_use_header,\
                          low_memory=False)
-    #print('exonic:', len(exn_df))
     #  If a dataframe is empty, it contains all columns in names in pd.read_csv
     if (len(exn_df.index) == 0):
         exn_df = pd.DataFrame(columns=config.refgene_exn_use_header)
@@ -41,18 +40,14 @@ def fetch_refgene(inputfile, rflag): # return a DataFrame
     var_df = pd.read_csv(result, header=None, names=config.refgene_var_header,\
                          sep='\t', usecols=config.refgene_var_use_header, \
                          low_memory=False)
-    #print('variant:', len(var_df))
     #  If a dataframe is empty, it contains all columns in names in pd.read_csv
     if (len(var_df.index) == 0):
         var_df = pd.DataFrame(columns=config.refgene_var_use_header)
     if(rflag):
         os.remove(result)
     #  merge the information from exonic and variant files    
-    #var_df = var_df[['exonic' not in x for x in var_df.variant_function]]    
-    gene_df = pd.merge(var_df, exn_df,  how='left', on=config.basic_header)
-    cols = gene_df.columns.tolist()
-    cols = [cols[8], cols[7]] + cols[:7]
-    gene_df = gene_df[cols]
+    var_df = var_df[['exonic' not in x for x in var_df.variant_function]]    
+    gene_df = exn_df.append(var_df)   
     gene_df[config.basic_header] = gene_df[config.basic_header].astype(str)
     return gene_df
 
@@ -89,12 +84,8 @@ def fetch_knowngene(inputfile, rflag): # return a DataFrame
         os.remove(result)
         
     #  merge the information from exonic and variant files
-    #var_df = var_df[['exonic' not in x for x in var_df.k_variant_function]]   
-    #gene_df = exn_df.append(var_df)
-    gene_df = pd.merge(var_df, exn_df,  how='left', on=config.basic_header)
-    cols = gene_df.columns.tolist()
-    cols = [cols[8], cols[7]] + cols[:7]
-    gene_df = gene_df[cols]
+    var_df = var_df[['exonic' not in x for x in var_df.k_variant_function]]   
+    gene_df = exn_df.append(var_df)
     gene_df[config.basic_header] = gene_df[config.basic_header].astype(str)
     return gene_df
 
@@ -131,82 +122,69 @@ def fetch_ensgene(inputfile, rflag): # return a DataFrame
         os.remove(result)
         
     #  merge the information from exonic and variant files
-    #var_df = var_df[['exonic' not in x for x in var_df.e_variant_function]]   
-    #gene_df = exn_df.append(var_df)
-    gene_df = pd.merge(var_df, exn_df, how='left', on=config.basic_header)
-    cols = gene_df.columns.tolist()
-    cols = [cols[8], cols[7]] + cols[:7]
-    gene_df = gene_df[cols]
+    var_df = var_df[['exonic' not in x for x in var_df.e_variant_function]]   
+    gene_df = exn_df.append(var_df)
     gene_df[config.basic_header] = gene_df[config.basic_header].astype(str)
     return gene_df
 
-def fetch_mergedgene(inputfile, rflag): # return a DataFrame
+def merge_gene_entries(dataframe, outfile): # return a DataFrame
     #  refgene query, save known to gene_df and unknown to unknown_df
-    refgene_df = fetch_refgene(inputfile, rflag)   
-    print(len(refgene_df))
-    refgene_unknown_df = refgene_df[refgene_df.variant_class=='unknown']
-    gene_df = refgene_df[refgene_df.variant_class!='unknown']    
-    #print(gene_df)
-    unknown_df = refgene_unknown_df[config.basic_header]
-    print('\nrefGene Number of unknown exonic entries:')
-    print(len(unknown_df))
-    #print(len(gene_df))
-    # knowngene query, merge unknown_df with knowngene_df 
-    knowngene_df = fetch_knowngene(inputfile, rflag)
-    unknown_df = pd.merge(unknown_df, knowngene_df, how='left', \
-                          on=config.basic_header)    
-    unknown_df= unknown_df.rename(columns= \
-                                  {config.knowngene_var_use_header[0]: \
-                                   config.refgene_var_use_header[0], \
-                                   config.knowngene_var_use_header[1]: \
-                                   config.refgene_var_use_header[1],
-                                   config.knowngene_exn_use_header[0]: \
-                                   config.refgene_exn_use_header[0], \
-                                   config.knowngene_exn_use_header[1]: \
-                                   config.refgene_exn_use_header[1]})    
-    cols = unknown_df.columns.tolist()
-    #print(cols)
-    cols = cols[-2:] + cols[:-2]     
-    unknown_df = unknown_df[cols]
+    headers = config.merged_custom_header
+    if( not config.refgene_header[0] in headers):
+        print('Error: refGene annotation is not in')
+        exit()
+    print('\n**************************************************************')
+    print('*    merging gene entries from refgene, knowngene, & ensgene *')
+    print('**************************************************************')
+    ofstream = open(outfile, 'w')
+    k=0
+    #write the header to outputfile
     
-    #  append unknows_df with known to gene_df
-    gene_df = gene_df.append(unknown_df[unknown_df.variant_class \
-                                        != 'unknown'])
-    unknown_df=unknown_df[unknown_df.variant_class=='unknown']
-    unknown_df = unknown_df[config.basic_header]
-    print('\nknownGene Number of unknown exonic entries:')
-    print(len(unknown_df))
-    #print(len(gene_df))
-    #  ensgene query to find the unknown after refgene and knowngene
-    ensgene_df = fetch_ensgene(inputfile, rflag)
-    unknown_df = pd.merge(unknown_df, ensgene_df, how='left', \
-                          on=config.basic_header)    
-    unknown_df= unknown_df.rename(columns= \
-                                  {config.ensgene_var_use_header[0]: \
-                                   config.refgene_var_use_header[0], \
-                                   config.ensgene_var_use_header[1]: \
-                                   config.refgene_var_use_header[1],
-                                   config.ensgene_exn_use_header[0]: \
-                                   config.refgene_exn_use_header[0], \
-                                   config.ensgene_exn_use_header[1]: \
-                                   config.refgene_exn_use_header[1]})    
-    cols = unknown_df.columns.tolist()
-    cols = cols[-2:] + cols[:-2]
-    #print(cols)
-    unknown_df = unknown_df[cols]
-    #print(unknown_df)
-   
-    gene_df = gene_df.append(unknown_df)
-    #print(gene_df)
-    #print(len(gene_df.index))
-    #gene_df = gene_df.append(unknown_df[unknown_df.variant_class \
-       
-    print('\nensGene Number of unknown exonic entries: ')
-    print(len(unknown_df[unknown_df.variant_class == 'unknown']))
-    #print(len(gene_df))
-    gene_df[config.basic_header] = gene_df[config.basic_header].astype(str)
+    for item in headers:
+        k=k+1
+        if (k==len(headers)):
+            ofstream.write(str(item))
+        else:
+            ofstream.write(str(item)+'\t')
+    ofstream.write('\n')
     
-    return gene_df
+    
+    j=0
+    for index, row in dataframe.iterrows():
+        
+        temp_row=row.copy(deep=True)
+        temp_row = temp_row[headers]
+        #temp_row['Gene'] ='a'
+        #print(row[headers])
+        #print(temp_row[headers])
+        write_row(temp_row, ofstream)
+        #print(row['VariantFunction'], row['VariantFunction.k'])
+        #print(row['ExonicFunction'], row['ExonicFunction.k'])
+        if(row['VariantFunction'] != row['VariantFunction.k'] \
+           or row['ExonicFunction'] != row['ExonicFunction.k']) :
+            #print('refGene & knownGene info is not the same')
+            #print(temp_row['Chr'], temp_row['Start'], temp_row['End'], \
+            #      temp_row['Ref'], temp_row['Alt'])
+            temp_row['VariantFunction'] = row['VariantFunction.k']
+            temp_row['Gene'] = row['Gene.k']
+            temp_row['GeneDetail'] = row['GeneDetail.k']
+            temp_row['ExonicFunction'] = row['ExonicFunction.k']
+            temp_row['AAChange'] = row['AAChange.k']
+            write_row(temp_row, ofstream)
+        if(row['VariantFunction'] != row['VariantFunction.e'] \
+           or row['ExonicFunction'] != row['ExonicFunction.e']):
+            #print('refGene & ensGene info is not the same')
+            #print(temp_row['Chr'], temp_row['Start'], temp_row['End'], \
+            #      temp_row['Ref'], temp_row['Alt'])
+            temp_row['VariantFunction'] = row['VariantFunction.e']
+            temp_row['Gene'] = row['Gene.e']
+            temp_row['GeneDetail'] = row['GeneDetail.e']
+            temp_row['ExonicFunction'] = row['ExonicFunction.e']
+            temp_row['AAChange'] = row['AAChange.e']
+            write_row(temp_row, ofstream)
+            
+    ofstream.close()
+    
 
 #####################################################################
 # expand_gene_entries
@@ -215,50 +193,47 @@ def expand_gene_entries(dataframe, outfile):
     print('\n**************************************************************')
     print('*    Expanding gene entries                                  *')
     print('**************************************************************')
-    ofile = open(outfile, 'w')
+    ofstream = open(outfile, 'w')
     k=0
     #write the header to outputfile
-    for item in list(dataframe.columns.values):
+    headers = list(dataframe.columns.values)
+    for item in headers:
         k=k+1
-        if k==len(list(dataframe.columns.values)):
-            ofile.write(str(item))
+        if k==len(headers):
+            ofstream.write(str(item))
         else:
-            ofile.write(str(item)+'\t')
-    ofile.write('\n')
+            ofstream.write(str(item)+'\t')
+    ofstream.write('\n')
     
     j=0
     for index, row in dataframe.iterrows():
         #iterate the dataframe to find the row with multiple gene entries
-        gene_piece = row['geneinfo'].strip().split(',')
-        gene_piece= gene_piece[:-1]
-        #print(gene_piece)
-        if(len(gene_piece) <= 1):
-            #  one gene entry: only copy it into outputfile
-            k=0
-            for item in row:
-                k = k+1;
-                if k==len(row):
-                    ofile.write(str(item))
-                else:
-                    ofile.write(str(item)+'\t')
-            
-            ofile.write('\n')
-            j=j+1
+        gene_piece = row['Gene'].strip().split(',')
+        aa_change_piece = row['AAChange'].strip().split(',')
         
-        else:   
-            #multiple gene entries 
-            for i in range(len(gene_piece)):            #print(i)
-                row['geneinfo'] = gene_piece[i]            
-                #temp_df.loc[j] = row
-                k=0
-                for item in row:
-                    k = k+1;
-                    if k==len(row):
-                        ofile.write(str(item))
-                    else:
-                        ofile.write(str(item)+'\t')
-                ofile.write('\n')
-            j=j+1
-     
-    ofile.close()
+       
+        #print('*************************')
+        #print(row['Gene']) 
+        #print('*************************')  
+        
+        for gene_item in gene_piece:
+            for aa_item in aa_change_piece:
+                #print('gene: ', gene_piece)
+                row['Gene'] = gene_item
+                row['AAChange']= aa_item
+                write_row(row, ofstream)   
+         
+    ofstream.close()
 
+def write_row(row, outstream):
+    k=0
+    for item in row:
+        #print(type(item))
+        i = str(item)
+        outstream.write(i.strip())
+        k=k+1
+        if(k!=len(row)):
+            outstream.write('\t')
+    outstream.write('\n')
+            
+    

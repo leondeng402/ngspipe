@@ -27,9 +27,11 @@ parser.add_argument('-o', nargs='?', help='output directory')
 #                    help='number of columns: range[5,6]')
 parser.add_argument('-t', action='store_true', help='timing each operation')
 parser.add_argument('-e', action='store_true', help='expanding gene entries')
-parser.add_argument('-r', action='store_true', help='remove temporary files')
+parser.add_argument('-d', action='store_true', help='delete temporary files')
 parser.add_argument('-m', action='store_true', help='merge gene info from ' \
                     +'refgene, knowngeen, and ensgene')
+parser.add_argument('-f', nargs='+', help='apply filter in the file')
+parser.add_argument('-r', nargs='+', help='output ranked list')
 args=parser.parse_args()
 
 if(args.i == None or args.o == None):
@@ -44,6 +46,7 @@ if(not os.path.isdir(args.o)):
     exit()
 infile = args.i
 outdir = args.o
+
 if(args.t):
     start_time = time.time()
 #####################################################################
@@ -60,6 +63,23 @@ print('**************************************************************')
 vcf_flag = False
 if(infile.endswith('.vcf')):
     vcf_flag = True
+    path = os.path.dirname(infile)+'/'
+    base = os.path.basename(infile)
+    md_str = 'convert2annovar.pl  -format vcf4 -allsample -withfreq ' \
+             + infile + ' -outfile ' + path+base.replace('.vcf', '.temp')
+    cmd = shlex.split(md_str)
+    #subprocess.call(cmd)
+    p = subprocess.Popen(cmd)
+    p.wait()
+    #print(infile.replace('.vcf', '.temp'))
+    temp_df = pd.read_csv(path+base.replace('.vcf', '.temp'), header=None, \
+                          names=config.vcfoutput_header, sep='\t', \
+                          usecols=config.basic_header, low_memory=False)
+    os.remove(path+base.replace('.vcf', '.temp'))
+    infile = path+base.replace('.vcf', '.txt')
+    print(infile)
+    temp_df.to_csv(infile, header=False, sep='\t', index=False)    
+    fieldnum=len(config.basic_header)
 else:
     ################################################################# 
     # need to validate the number of columns in an input file
@@ -91,36 +111,34 @@ md_str= 'table_annovar.pl ' + infile + ' ' \
         + ' -operation ' + ','.join(config.operations)\
         + ' -nastring ' + config.nastring \
         + ' -csvout'
-if(vcf_flag):
-    md_str= md_str + ' -vcfinput'
-    
-if(args.r):
+   
+if(args.d):
     md_str=md_str + ' -remove'
 #print(md_str)
 cmd = shlex.split(md_str)
 subprocess.call(cmd)
 result = infile+'.'+config.buildver + config.table_anno_suffix
             
-#print(result)
 header=config.table_anno_header
 df = pd.read_csv(result, header=None, names=header, sep=',', \
-                 usecols=header[:26]+header[32:],low_memory=False, skiprows=1)
-#print(df.columns.values)
-
-df.columns=header[:26]+header[32:]
+                 low_memory=False, skiprows=1)
+df[config.basic_header] = df[config.basic_header].astype(str)
+if(args.d):   
+    os.remove(result)
 if(args.t):
     end_time = time.time()
     print(time.strftime('%H:%M:%S', time.gmtime(end_time-start_time)))
     start_time = time.time()
 
-#print(df)
 #####################################################################
 #  fetch 1000 genome project all
 #####################################################################
 for race in config.g1k_races:
-    g1k_df = variant.fetch_g1k(infile, race, vcf_flag, args.r )
+    g1k_df = variant.fetch_g1k(infile, race, fieldnum, vcf_flag, args.d)
+    #print(g1k_df)
     df = df.merge(g1k_df, how='left', on=config.basic_header)
-    
+   
+
 if(args.t):
     end_time = time.time()
     print(time.strftime('%H:%M:%S', time.gmtime(end_time-start_time)))
@@ -128,10 +146,13 @@ if(args.t):
 #####################################################################
 #  fetch cadd score
 #####################################################################
-cadd_df = variant.fetch_cadd(infile, vcf_flag, args.r)
+cadd_df = variant.fetch_cadd(infile, fieldnum, vcf_flag, args.d)
+#print(cadd_df)
 df = pd.merge(df, cadd_df, how='left', on=config.basic_header)
 
-
+if(args.d):
+    os.remove(infile+'.log')
+    
 if(args.t):
     end_time = time.time()
     print(time.strftime('%H:%M:%S', time.gmtime(end_time-start_time)))
@@ -140,36 +161,59 @@ if(args.t):
 #  fetch hgmd info
 #####################################################################
 hgmd_df = variant.fetch_hgmd()
-print(hgmd_df.columns.values)
 df = df.merge(hgmd_df, how='left', on=['Chr', 'Start', 'End'])
 
 if(args.t):
     end_time = time.time()
     print(time.strftime('%H:%M:%S', time.gmtime(end_time-start_time)))
     start_time = time.time()
-print(df.columns.values)
-#####################################################################
-#  expand multiple entries in gene info
-#####################################################################
-#df = df.fillna('.')
+#print(df.columns.values)
+
+# keep only display columns
+df=pd.DataFrame(df, columns=config.custom_header)
+df=df.fillna('.')
+
+
 if(args.o.endswith('/')):
     pass
     file = args.o + '' + infile.split('/')[-1] + '.annotated'
 else:
     pass
     file = args.o + '/' + infile.split('/')[-1] + '.annotated'
+df.to_csv(file, sep='\t', index=False)
+
+#####################################################################
+#  merge gene entries from different sources
+#####################################################################
+if(args.m):
+    # merging gene entries
+    df = pd.read_csv(file, sep='\t', low_memory=False)
+    gene.merge_gene_entries(df, file)
+    if(args.t):
+        end_time = time.time()
+        print(time.strftime('%H:%M:%S', time.gmtime(end_time-start_time)))
+#df.to_csv(file.replace('.annotated', '.merged'), sep='\t', index=False)
+#####################################################################
+#  expand multiple entries in gene info
+#####################################################################
 if(args.e):
-    pass
-    #expanding gene entries
+    # expanding gene entries
+    df = pd.read_csv(file, sep='\t', low_memory=False)
     gene.expand_gene_entries(df, file)    
     if(args.t):
         end_time = time.time()
         print(time.strftime('%H:%M:%S', time.gmtime(end_time-start_time)))
-else:
-    pass
-df.fillna('.')
-df.to_csv(file, sep='\t', index=False)
+#df.to_csv(file.replace('.annotated', '.expanded'), sep='\t', index=False)
+#df.fillna('.')
+#
 
-
-
+#####################################################################
+#  apply filters
+#####################################################################
+print('\n**************************************************************')
+print('*    start to apply filter(s)                                *')
+print('**************************************************************')
+if(args.f != None):
+    for filter in args.f:
+        print('apply filter: ',filter)
 

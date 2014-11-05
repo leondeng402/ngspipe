@@ -4,7 +4,7 @@
 #    region.py:  the file contains all the region level functions  
 #                 related to annovar
 #    author:  Liyong Deng
-#    copyright (c) 2014 by Liyong Deng in Dr. Chung's Lab
+#    copyright (c) 2014 by Liyong Deng
 #
 #####################################################################
 import os

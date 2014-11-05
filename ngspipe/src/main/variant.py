@@ -14,7 +14,7 @@ import pandas as pd
 
 import config
 
-def fetch_snpid(inputfile, rflag): # return a DataFrame
+def fetch_snpid(inputfile, dflag): # return a DataFrame
     print('\n**************************************************************')
     print('*    Start to fetch dbsnp ID                                 *')
     print('**************************************************************')
@@ -27,7 +27,7 @@ def fetch_snpid(inputfile, rflag): # return a DataFrame
     snp_df =  pd.read_csv(result, header=None, names=config.snp_header, \
                           sep='\t', usecols=config.snp_use_header, \
                           low_memory=False)
-    if(rflag):
+    if(dflag):
         os.remove(inputfile+'.'+config.buildver+config.snp_drp_suffix)
         os.remove(inputfile+'.'+config.buildver+config.snp_flt_suffix)
     #  If a dataframe is empty, it contains all columns in names in pd.read_csv
@@ -47,10 +47,11 @@ def fetch_hgmd(): # return DataFrame
                           low_memory=False)
 
     hgmd_df.fillna('.')
-    hgmd_df[['Chr', 'Start', 'End']] = hgmd_df[['Chr', 'Start', 'End']].astype(str)
+    hgmd_df[['Chr', 'Start', 'End']] = hgmd_df[['Chr', 'Start', 'End']].\
+                                       astype(str)
     return hgmd_df
     
-def fetch_g1k(inputfile, race, vflag, rflag): # return DataFrame    
+def fetch_g1k(inputfile, race, fieldnum, vflag, dflag): # return DataFrame    
     ### fetch g1k_all_allele_freq
     print('\nFetch g1k_' + race + ' allele frequency')
     cmd_str= 'annotate_variation.pl  -filter -out ' + inputfile  \
@@ -61,7 +62,8 @@ def fetch_g1k(inputfile, race, vflag, rflag): # return DataFrame
     subprocess.call(cmd)
     result = inputfile+'.'+config.buildver+'_' + race.upper() \
              + config.g1k_drp_suffix
-    if(vflag):
+    print(result)
+    if(vflag or fieldnum==5):
         header = config.g1k_header
     else:
         header = config.g1k_header[:2] + config.txtinput_header
@@ -70,22 +72,25 @@ def fetch_g1k(inputfile, race, vflag, rflag): # return DataFrame
     g1k_df = pd.read_csv(result, header=None, names=header, \
                              sep='\t', usecols=header[1:],\
                              low_memory=False)
-    g1k_df = g1k_df.rename(columns={'Value': config.g1k+'_'+race})
-    if(rflag):
+    g1k_df = g1k_df.rename(columns={'Value': config.g1k.upper() + '_' \
+                                    + race.upper()})
+    if(dflag):
         os.remove(inputfile+'.'+config.buildver + '_' + race.upper() \
                   + config.g1k_drp_suffix)
         os.remove(inputfile+'.'+config.buildver + '_' + race.upper() \
                   +config.g1k_flt_suffix)
     if (len(g1k_df.index) == 0):
         g1k_df = pd.DataFrame(columns=config.g1k_header[1:])
-        g1k_df = g1k_df.rename(columns={'Value': 'g1k_'+race})
+        g1k_df = g1k_df.rename(columns={'Value': config.g1k.upper() + '_' \
+                                        + race.upper()})
+    #print(g1k_df)
     if 'Comments' in g1k_df:
         g1k_df= g1k_df.drop('Comments', axis=1)
     g1k_df[config.basic_header] = g1k_df[config.basic_header].astype(str)
     #print(g1k_df.columns.values)
     return g1k_df
 
-def fetch_g1k_afr(inputfile, rflag): # return DataFrame    
+def fetch_g1k_afr(inputfile, dflag): # return DataFrame    
     ### fetch g1k_afr_allele_freq
     print('\nFetch g1k_afr allele frequency')
     cmd_str= 'annotate_variation.pl  -filter -out ' + inputfile   + ' -dbtype ' \
@@ -98,7 +103,7 @@ def fetch_g1k_afr(inputfile, rflag): # return DataFrame
                              sep='\t', usecols=config.g1k_afr_use_header,\
                              low_memory=False)
     #g1k_all_df= g1k_all_df.drop('label', axis=1)
-    if(rflag):
+    if(dflag):
         os.remove(inputfile+'.'+config.buildver+config.g1k_afr_drp_suffix)
         os.remove(inputfile+'.'+config.buildver+config.g1k_afr_flt_suffix)
     if (len(g1k_afr_df.index) == 0):
@@ -106,7 +111,7 @@ def fetch_g1k_afr(inputfile, rflag): # return DataFrame
     g1k_afr_df[config.basic_header] = g1k_afr_df[config.basic_header].astype(str)
     return g1k_afr_df
 
-def fetch_g1k_amr(inputfile, rflag): # return Datamrame    
+def fetch_g1k_amr(inputfile, dflag): # return Datamrame    
     ### fetch g1k_amr_allele_freq
     print('\nFetch g1k_amr allele frequency')
     cmd_str= 'annotate_variation.pl  -filter -out ' + inputfile   + ' -dbtype ' \
@@ -119,7 +124,7 @@ def fetch_g1k_amr(inputfile, rflag): # return Datamrame
                              sep='\t', usecols=config.g1k_amr_use_header,\
                              low_memory=False)
     #g1k_all_df= g1k_all_df.drop('label', axis=1)
-    if(rflag):
+    if(dflag):
         os.remove(inputfile+'.'+config.buildver+config.g1k_amr_drp_suffix)
         os.remove(inputfile+'.'+config.buildver+config.g1k_amr_flt_suffix)
     if (len(g1k_amr_df.index) == 0):
@@ -127,7 +132,7 @@ def fetch_g1k_amr(inputfile, rflag): # return Datamrame
     g1k_amr_df[config.basic_header] = g1k_amr_df[config.basic_header].astype(str)
     return g1k_amr_df
 
-def fetch_g1k_eas(inputfile, rflag): # return Dateasame    
+def fetch_g1k_eas(inputfile, dflag): # return Dateasame    
     ### fetch g1k_eas_allele_freq
     print('\nFetch g1k_eas allele frequency')
     cmd_str= 'annotate_variation.pl  -filter -out ' + inputfile   + ' -dbtype ' \
@@ -140,7 +145,7 @@ def fetch_g1k_eas(inputfile, rflag): # return Dateasame
                              sep='\t', usecols=config.g1k_eas_use_header,\
                              low_memory=False)
     #g1k_all_df= g1k_all_df.drop('label', axis=1)
-    if(rflag):
+    if(dflag):
         os.remove(inputfile+'.'+config.buildver+config.g1k_eas_drp_suffix)
         os.remove(inputfile+'.'+config.buildver+config.g1k_eas_flt_suffix)
     if (len(g1k_eas_df.index) == 0):
@@ -148,7 +153,7 @@ def fetch_g1k_eas(inputfile, rflag): # return Dateasame
     g1k_eas_df[config.basic_header] = g1k_eas_df[config.basic_header].astype(str)
     return g1k_eas_df
 
-def fetch_g1k_eur(inputfile, rflag): # return Dateurame    
+def fetch_g1k_eur(inputfile, dflag): # return Dateurame    
     ### fetch g1k_eur_allele_freq
     print('\nFetch g1k_eur allele frequency')
     cmd_str= 'annotate_variation.pl  -filter -out ' + inputfile   + ' -dbtype ' \
@@ -161,7 +166,7 @@ def fetch_g1k_eur(inputfile, rflag): # return Dateurame
                              sep='\t', usecols=config.g1k_eur_use_header,\
                              low_memory=False)
     #g1k_all_df= g1k_all_df.drop('label', axis=1)
-    if(rflag):
+    if(dflag):
         os.remove(inputfile+'.'+config.buildver+config.g1k_eur_drp_suffix)
         os.remove(inputfile+'.'+config.buildver+config.g1k_eur_flt_suffix)
     if (len(g1k_eur_df.index) == 0):
@@ -169,7 +174,7 @@ def fetch_g1k_eur(inputfile, rflag): # return Dateurame
     g1k_eur_df[config.basic_header] = g1k_eur_df[config.basic_header].astype(str)
     return g1k_eur_df
 
-def fetch_g1k_sas(inputfile, rflag): # return Datsasame    
+def fetch_g1k_sas(inputfile, dflag): # return Datsasame    
     ### fetch g1k_sas_allele_freq
     print('\nFetch g1k_sas allele frequency')
     cmd_str= 'annotate_variation.pl  -filter -out ' + inputfile   + ' -dbtype ' \
@@ -182,7 +187,7 @@ def fetch_g1k_sas(inputfile, rflag): # return Datsasame
                              sep='\t', usecols=config.g1k_sas_use_header,\
                              low_memory=False)
     #g1k_all_df= g1k_all_df.drop('label', axis=1)
-    if(rflag):
+    if(dflag):
         os.remove(inputfile+'.'+config.buildver+config.g1k_sas_drp_suffix)
         os.remove(inputfile+'.'+config.buildver+config.g1k_sas_flt_suffix)
     if (len(g1k_sas_df.index) == 0):
@@ -190,7 +195,7 @@ def fetch_g1k_sas(inputfile, rflag): # return Datsasame
     g1k_sas_df[config.basic_header] = g1k_sas_df[config.basic_header].astype(str)
     return g1k_sas_df
 
-def fetch_esp_all(inputfile, rflag): # return Datsasame    
+def fetch_esp_all(inputfile, dflag): # return Datsasame    
     ### fetch esp_all_allele_freq
     print('\nFetch esp_all allele frequency')
     cmd_str= 'annotate_variation.pl  -filter -out ' + inputfile   + ' -dbtype ' \
@@ -203,7 +208,7 @@ def fetch_esp_all(inputfile, rflag): # return Datsasame
                              sep='\t', usecols=config.esp_all_use_header,\
                              low_memory=False)
     #esp_all_df= esp_all_df.drop('label', axis=1)
-    if(rflag):
+    if(dflag):
         os.remove(inputfile+'.'+config.buildver+config.esp_all_drp_suffix)
         os.remove(inputfile+'.'+config.buildver+config.esp_all_flt_suffix)
     if (len(esp_all_df.index) == 0):
@@ -211,7 +216,7 @@ def fetch_esp_all(inputfile, rflag): # return Datsasame
     esp_all_df[config.basic_header] = esp_all_df[config.basic_header].astype(str)
     return esp_all_df
 
-def fetch_esp_aa(inputfile, rflag): # return Datsasame    
+def fetch_esp_aa(inputfile, dflag): # return Datsasame    
     ### fetch esp_aa_allele_freq
     print('\nFetch esp_aa allele frequency')
     cmd_str= 'annotate_variation.pl  -filter -out ' + inputfile   + ' -dbtype ' \
@@ -224,7 +229,7 @@ def fetch_esp_aa(inputfile, rflag): # return Datsasame
                              sep='\t', usecols=config.esp_aa_use_header,\
                              low_memory=False)
     #esp_aa_df= esp_aa_df.drop('label', axis=1)
-    if(rflag):
+    if(dflag):
         os.remove(inputfile+'.'+config.buildver+config.esp_aa_drp_suffix)
         os.remove(inputfile+'.'+config.buildver+config.esp_aa_flt_suffix)
     if (len(esp_aa_df.index) == 0):
@@ -232,7 +237,7 @@ def fetch_esp_aa(inputfile, rflag): # return Datsasame
     esp_aa_df[config.basic_header] = esp_aa_df[config.basic_header].astype(str)
     return esp_aa_df
 
-def fetch_esp_ea(inputfile, rflag): # return Datsasame    
+def fetch_esp_ea(inputfile, dflag): # return Datsasame    
     ### fetch esp_ea_allele_freq
     print('\nFetch esp_ea allele frequency')
     cmd_str= 'annotate_variation.pl  -filter -out ' + inputfile   + ' -dbtype ' \
@@ -245,7 +250,7 @@ def fetch_esp_ea(inputfile, rflag): # return Datsasame
                              sep='\t', usecols=config.esp_ea_use_header,\
                              low_memory=False)
     #esp_ea_df= esp_ea_df.drop('label', axis=1)
-    if(rflag):
+    if(dflag):
         os.remove(inputfile+'.'+config.buildver+config.esp_ea_drp_suffix)
         os.remove(inputfile+'.'+config.buildver+config.esp_ea_flt_suffix)
     if (len(esp_ea_df.index) == 0):
@@ -253,7 +258,7 @@ def fetch_esp_ea(inputfile, rflag): # return Datsasame
     esp_ea_df[config.basic_header] = esp_ea_df[config.basic_header].astype(str)
     return esp_ea_df
 
-def fetch_cg(inputfile, rflag): # return Datsasame    
+def fetch_cg(inputfile, dflag): # return Datsasame    
     ### fetch cg_allele_freq
     print('\n**************************************************************') 
     print('*    Fetch cg allele frequency                               *')
@@ -269,7 +274,7 @@ def fetch_cg(inputfile, rflag): # return Datsasame
                              sep='\t', usecols=config.cg_use_header,\
                              low_memory=False)
     #cg_df= cg_df.drop('label', axis=1)
-    if(rflag):
+    if(dflag):
         os.remove(inputfile+'.'+config.buildver+config.cg_drp_suffix)
         os.remove(inputfile+'.'+config.buildver+config.cg_flt_suffix)
     if (len(cg_df.index) == 0):
@@ -277,7 +282,7 @@ def fetch_cg(inputfile, rflag): # return Datsasame
     cg_df[config.basic_header] = cg_df[config.basic_header].astype(str)
     return cg_df
 
-def fetch_popfreq(inputfile, rflag): # return Datsasame    
+def fetch_popfreq(inputfile, dflag): # return Datsasame    
     ### fetch popfreq_allele_freq
     print('\n**************************************************************') 
     print('*    Fetch popfreq allele frequency                          *')
@@ -292,7 +297,7 @@ def fetch_popfreq(inputfile, rflag): # return Datsasame
                              sep='\t', usecols=config.popfreq_use_header,\
                              low_memory=False)
     #popfreq_df= popfreq_df.drop('label', axis=1)
-    if(rflag):
+    if(dflag):
         os.remove(inputfile+'.'+config.buildver+config.popfreq_drp_suffix)
         os.remove(inputfile+'.'+config.buildver+config.popfreq_flt_suffix)
     if (len(popfreq_df.index) == 0):
@@ -300,7 +305,7 @@ def fetch_popfreq(inputfile, rflag): # return Datsasame
     popfreq_df[config.basic_header] = popfreq_df[config.basic_header].astype(str)
     return popfreq_df
 
-def fetch_ljb(inputfile, rflag): # return Datsasame    
+def fetch_ljb(inputfile, dflag): # return Datsasame    
     ### fetch popfreq_allele_freq
     print('\n**************************************************************') 
     print('*    Fetch LJB pathogenicity scores                          *')
@@ -322,7 +327,7 @@ def fetch_ljb(inputfile, rflag): # return Datsasame
                              sep=',', usecols=config.ljb_use_header,\
                              low_memory=False)
     #ljb_df= ljb_df.drop('label', axis=1)
-    if(rflag):
+    if(dflag):
         os.remove(inputfile+'.'+config.buildver+config.ljb_drp_suffix)
         os.remove(inputfile+'.'+config.buildver+config.ljb_flt_suffix)
     if (len(ljb_df.index) == 0):
@@ -331,7 +336,7 @@ def fetch_ljb(inputfile, rflag): # return Datsasame
     return ljb_df
     
     
-def fetch_cadd(inputfile, vflag, rflag): # return Datsasame    
+def fetch_cadd(inputfile, fieldnum, vflag, dflag): # return Datsasame    
     ### fetch popfreq_allele_freq
     print('\n**************************************************************') 
     print('*    Fetch cadd pathogenicity scores                         *')
@@ -349,18 +354,16 @@ def fetch_cadd(inputfile, vflag, rflag): # return Datsasame
     of.close()
     os.remove(result)
     os.rename(result+'.temp', result)
-    if(vflag):
+    if(vflag or fieldnum == 5):
         header = config.cadd_header
     else:
         header = config.cadd_header[:3] + config.txtinput_header
-    print(header)
-    print(header[1:])
     cadd_df = pd.read_csv(result, header=None, names=header, \
                              sep=',', usecols=header[1:],\
                              low_memory=False)
     if 'Comments' in cadd_df:
         cadd_df= cadd_df.drop('Comments', axis=1)
-    if(rflag):
+    if(dflag):
         os.remove(inputfile+'.'+config.buildver+config.cadd_drp_suffix)
         os.remove(inputfile+'.'+config.buildver+config.cadd_flt_suffix)
     if (len(cadd_df.index) == 0):
@@ -369,7 +372,7 @@ def fetch_cadd(inputfile, vflag, rflag): # return Datsasame
     return cadd_df
     
 
-def fetch_clinvar(inputfile, rflag): # return Datsasame    
+def fetch_clinvar(inputfile, dflag): # return Datsasame    
     ### fetch clinvar_allele_freq
     print('\n**************************************************************') 
     print('*    Fetch clinvar info                                      *')
@@ -384,7 +387,7 @@ def fetch_clinvar(inputfile, rflag): # return Datsasame
                              sep='\t', usecols=config.clinvar_use_header,\
                              low_memory=False)
     #clinvar_df= clinvar_df.drop('label', axis=1)
-    if(rflag):
+    if(dflag):
         os.remove(inputfile+'.'+config.buildver+config.clinvar_drp_suffix)
         os.remove(inputfile+'.'+config.buildver+config.clinvar_flt_suffix)
     if (len(clinvar_df.index) == 0):
@@ -392,7 +395,7 @@ def fetch_clinvar(inputfile, rflag): # return Datsasame
     clinvar_df[config.basic_header] = clinvar_df[config.basic_header].astype(str)
     return clinvar_df
     
-def fetch_cosmic(inputfile, rflag): # return Datsasame    
+def fetch_cosmic(inputfile, dflag): # return Datsasame    
     ### fetch cosmic_allele_freq
     print('\n**************************************************************') 
     print('*    Fetch cosmic info                                      *')
@@ -407,7 +410,7 @@ def fetch_cosmic(inputfile, rflag): # return Datsasame
                              sep='\t', usecols=config.cosmic_use_header,\
                              low_memory=False)
     #cosmic_df= cosmic_df.drop('label', axis=1)
-    if(rflag):
+    if(dflag):
         os.remove(inputfile+'.'+config.buildver+config.cosmic_drp_suffix)
         os.remove(inputfile+'.'+config.buildver+config.cosmic_flt_suffix)
     if (len(cosmic_df.index) == 0):
@@ -417,7 +420,7 @@ def fetch_cosmic(inputfile, rflag): # return Datsasame
       
     
     
-def fetch_nci(inputfile, rflag): # return Datsasame    
+def fetch_nci(inputfile, dflag): # return Datsasame    
     ### fetch nci_allele_freq
     print('\n**************************************************************') 
     print('*    Fetch nci info                                      *')
@@ -432,26 +435,11 @@ def fetch_nci(inputfile, rflag): # return Datsasame
                              sep='\t', usecols=config.nci_use_header,\
                              low_memory=False)
     #nci_df= nci_df.drop('label', axis=1)
-    if(rflag):
+    if(dflag):
         os.remove(inputfile+'.'+config.buildver+config.nci_drp_suffix)
         os.remove(inputfile+'.'+config.buildver+config.nci_flt_suffix)
     if (len(nci_df.index) == 0):
         nci_df = pd.DataFrame(columns=config.nci_use_header)
     nci_df[config.basic_header] = nci_df[config.basic_header].astype(str)
     return nci_df
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+

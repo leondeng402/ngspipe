@@ -30,24 +30,30 @@ Usage:
 	python3.4 ngspipe.py -i input.txt -o outdir
 3. To time each operations:
 	python3.4 ngspipe.py -i input.txt -o outdir -t
-4. To remove all the temporary files:
-	python3.4 ngspipe.py -i input.txt -o outdir -r
+4. To delete all the temporary files:
+	python3.4 ngspipe.py -i input.txt -o outdir -d
 5. To expand refgene gene entries:
 	python3.4 ngspipe.py -i input.txt -o outdir -e
-5. To merge geneinfs from refgene, knowngene, and ensgene:
-	python3.4 ngspipe.py -i input.txt -o outdir -m
+6. To filter variants:
+	python3.4 ngspipe.py -i input.txt -o outdir -f filter_file	
+6. To rank variants:
+	python3.4 ngspipe.py -i input.txt -o outdir -f rank_file
 	
 -------
 Test:
 -------
-1. Check input files' all columns: [chr, start, end, ref, alt]
+1. Check input files' all columns: chr, start, end, ref, alt
 	range of values in those fields
-2. Use variants with unknown variant_class and geneinfo to check gene 
-   annotations
-3. Use postive/negative files to check all levels of annotations
+2. Use variants with unknown genetype and geneinfo to check gene annotations
+	negative
+3. Use postive files to check all levels of annotations
 
----------
-Issues:
----------
-1. Variants Join with HGMD only on [chr, start, end]. This increase the sensitivity,
-
+---------------
+Known Issues:
+---------------
+1. table_annovar use 1000G2012Apr as default and it leads to the popfreq_max is 
+not consistent with 1000G2014Sep data we use
+2. expand gene entries operation: only expand (VariantFunction, Gene, 
+GeneDetail, ExonicFunction, AAChange) from refGene. The fields from knownGene
+and ensGene are kept as they are. However, if -e is used with -m, all entries
+in (VariantFunction, Gene, GeneDetail, ExonicFunction, AAChange) are expanded
