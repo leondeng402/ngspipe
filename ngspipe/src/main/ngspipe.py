@@ -13,7 +13,7 @@ import argparse
 
 import pandas as pd
 
-import config, gene, variant, region
+import config, gene, variant, region, operation
 
 
 #####################################################################
@@ -21,19 +21,27 @@ import config, gene, variant, region
 #####################################################################
 parser = argparse.ArgumentParser(description='Annotate Next Generation ' + \
                                  'Sequence file')
+parser.add_argument('-c', action='store_true', help='consolidate gene info ' \
+                    + 'from refgene, knowngene, and ensgene')
+parser.add_argument('-d', action='store_true', help='delete temporary files')
+parser.add_argument('-e', action='store_true', help='expanding gene entries')
+parser.add_argument('-f', nargs='+', help='apply filter in the file')
 parser.add_argument('-i', nargs='?', help='input file')
 parser.add_argument('-o', nargs='?', help='output directory')
-#parser.add_argument('-n', nargs='?', default=5, \
-#                    help='number of columns: range[5,6]')
-parser.add_argument('-t', action='store_true', help='timing each operation')
-parser.add_argument('-e', action='store_true', help='expanding gene entries')
-parser.add_argument('-d', action='store_true', help='delete temporary files')
-parser.add_argument('-m', action='store_true', help='merge gene info from ' \
-                    +'refgene, knowngeen, and ensgene')
-parser.add_argument('-f', nargs='+', help='apply filter in the file')
 parser.add_argument('-r', nargs='+', help='output ranked list')
-args=parser.parse_args()
+parser.add_argument('-t', action='store_true', help='timing each operation')
+parser.add_argument('--mode', nargs='?', choices=['mono', 'proband', \
+                                                  'trios', 'family', 'all'],\
+                    default='mono',  help='output results in one file, a file '\
+                    + 'per proband, a file per family or files in all formats')
+parser.add_argument('-m', nargs='?', help='proband/trios/family '+\
+                     'information file')
 
+args=parser.parse_args()
+if(args.mode != 'mono' or args.mode != 'singleton'):
+    print('parse the family realtionship file')
+    #validate args.m file exists with correct format
+    
 if(args.i == None or args.o == None):
     print('Error: -i and -o is required')
     exit()
@@ -65,6 +73,9 @@ if(infile.endswith('.vcf')):
     vcf_flag = True
     path = os.path.dirname(infile)+'/'
     base = os.path.basename(infile)
+    #  read the vcf file to get the chr, start, ref, alt
+    genotype_df = operation.retrieve_genotype(infile)
+    
     md_str = 'convert2annovar.pl  -format vcf4 -allsample -withfreq ' \
              + infile + ' -outfile ' + path+base.replace('.vcf', '.temp')
     cmd = shlex.split(md_str)
@@ -175,37 +186,36 @@ df=df.fillna('.')
 
 
 if(args.o.endswith('/')):
-    pass
     file = args.o + '' + infile.split('/')[-1] + '.annotated'
 else:
-    pass
     file = args.o + '/' + infile.split('/')[-1] + '.annotated'
-df.to_csv(file, sep='\t', index=False)
+    
+operation.output_results(file, df, genotype_df, args.mode, args.m)
+
 
 #####################################################################
-#  merge gene entries from different sources
+#  consolidate gene entries from different sources
 #####################################################################
-if(args.m):
+if(args.c):
     # merging gene entries
-    df = pd.read_csv(file, sep='\t', low_memory=False)
-    gene.merge_gene_entries(df, file)
+    df = gene.merge_gene_entries(df)
+        
+    df.to_csv(file.replace('.annotated', '.consilidated'), sep='\t', index=False)
     if(args.t):
         end_time = time.time()
         print(time.strftime('%H:%M:%S', time.gmtime(end_time-start_time)))
-#df.to_csv(file.replace('.annotated', '.merged'), sep='\t', index=False)
 #####################################################################
 #  expand multiple entries in gene info
 #####################################################################
 if(args.e):
     # expanding gene entries
-    df = pd.read_csv(file, sep='\t', low_memory=False)
-    gene.expand_gene_entries(df, file)    
+    df = gene.expand_gene_entries(df)    
+    df.to_csv(file.replace('.annotated', '.expanded'), sep='\t', index=False)
     if(args.t):
         end_time = time.time()
         print(time.strftime('%H:%M:%S', time.gmtime(end_time-start_time)))
-#df.to_csv(file.replace('.annotated', '.expanded'), sep='\t', index=False)
-#df.fillna('.')
-#
+    
+
 
 #####################################################################
 #  apply filters
@@ -215,5 +225,18 @@ print('*    start to apply filter(s)                                *')
 print('**************************************************************')
 if(args.f != None):
     for filter in args.f:
-        print('apply filter: ',filter)
+        df = operation.apply_filter(df, filter)
+
+    df.to_csv(file.replace('.annotated', '.filtered'), sep='\t', index=False)
+
+
+#####################################################################
+#  rank variants/genes
+##################################################################### 
+print('\n**************************************************************')
+print('*    start to rank variants/genes                            *')
+print('**************************************************************') 
+if(args.r != None):
+    for ranker in args.r:
+        df = operation.rank(df, ranker)  
 

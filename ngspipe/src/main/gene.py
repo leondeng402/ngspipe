@@ -1,8 +1,7 @@
 #! /usr/local/bin/python3.4
 #####################################################################
 #
-#    anv.py:  the file contains all the gene level functions related to 
-#             annovar
+#    gene.py:  the file contains all the gene level functions#             
 #    author:  Liyong Deng
 #    copyright (c) 2014 by Liyong Deng
 #
@@ -127,7 +126,7 @@ def fetch_ensgene(inputfile, rflag): # return a DataFrame
     gene_df[config.basic_header] = gene_df[config.basic_header].astype(str)
     return gene_df
 
-def merge_gene_entries(dataframe, outfile): # return a DataFrame
+def merge_gene_entries(dataframe): # return a DataFrame
     #  refgene query, save known to gene_df and unknown to unknown_df
     headers = config.merged_custom_header
     if( not config.refgene_header[0] in headers):
@@ -136,30 +135,14 @@ def merge_gene_entries(dataframe, outfile): # return a DataFrame
     print('\n**************************************************************')
     print('*    merging gene entries from refgene, knowngene, & ensgene *')
     print('**************************************************************')
-    ofstream = open(outfile, 'w')
-    k=0
-    #write the header to outputfile
-    
-    for item in headers:
-        k=k+1
-        if (k==len(headers)):
-            ofstream.write(str(item))
-        else:
-            ofstream.write(str(item)+'\t')
-    ofstream.write('\n')
-    
-    
+      
+    temp_list = []
     j=0
     for index, row in dataframe.iterrows():
         
         temp_row=row.copy(deep=True)
-        temp_row = temp_row[headers]
-        #temp_row['Gene'] ='a'
-        #print(row[headers])
-        #print(temp_row[headers])
-        write_row(temp_row, ofstream)
-        #print(row['VariantFunction'], row['VariantFunction.k'])
-        #print(row['ExonicFunction'], row['ExonicFunction.k'])
+        temp_row = temp_row[headers]       
+        temp_list.append(temp_row)
         if(row['VariantFunction'] != row['VariantFunction.k'] \
            or row['ExonicFunction'] != row['ExonicFunction.k']) :
             #print('refGene & knownGene info is not the same')
@@ -170,7 +153,7 @@ def merge_gene_entries(dataframe, outfile): # return a DataFrame
             temp_row['GeneDetail'] = row['GeneDetail.k']
             temp_row['ExonicFunction'] = row['ExonicFunction.k']
             temp_row['AAChange'] = row['AAChange.k']
-            write_row(temp_row, ofstream)
+            temp_list.append(temp_row)
         if(row['VariantFunction'] != row['VariantFunction.e'] \
            or row['ExonicFunction'] != row['ExonicFunction.e']):
             #print('refGene & ensGene info is not the same')
@@ -181,49 +164,38 @@ def merge_gene_entries(dataframe, outfile): # return a DataFrame
             temp_row['GeneDetail'] = row['GeneDetail.e']
             temp_row['ExonicFunction'] = row['ExonicFunction.e']
             temp_row['AAChange'] = row['AAChange.e']
-            write_row(temp_row, ofstream)
+            temp_list.append(temp_row)
+    temp_df = pd.DataFrame(temp_list, columns=headers)
             
-    ofstream.close()
+    return temp_df
     
 
 #####################################################################
 # expand_gene_entries
 #####################################################################
-def expand_gene_entries(dataframe, outfile):
+def expand_gene_entries(dataframe):
     print('\n**************************************************************')
     print('*    Expanding gene entries                                  *')
     print('**************************************************************')
-    ofstream = open(outfile, 'w')
-    k=0
-    #write the header to outputfile
+   
     headers = list(dataframe.columns.values)
-    for item in headers:
-        k=k+1
-        if k==len(headers):
-            ofstream.write(str(item))
-        else:
-            ofstream.write(str(item)+'\t')
-    ofstream.write('\n')
     
+    temp_list = []
     j=0
     for index, row in dataframe.iterrows():
         #iterate the dataframe to find the row with multiple gene entries
         gene_piece = row['Gene'].strip().split(',')
         aa_change_piece = row['AAChange'].strip().split(',')
         
-       
-        #print('*************************')
-        #print(row['Gene']) 
-        #print('*************************')  
-        
         for gene_item in gene_piece:
             for aa_item in aa_change_piece:
                 #print('gene: ', gene_piece)
                 row['Gene'] = gene_item
                 row['AAChange']= aa_item
-                write_row(row, ofstream)   
-         
-    ofstream.close()
+                temp_list.append(row)           
+    temp_df = pd.DataFrame(temp_list, columns=headers)
+            
+    return temp_df
 
 def write_row(row, outstream):
     k=0

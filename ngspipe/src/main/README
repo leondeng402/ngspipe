@@ -36,8 +36,13 @@ Usage:
 	python3.4 ngspipe.py -i input.txt -o outdir -e
 6. To filter variants:
 	python3.4 ngspipe.py -i input.txt -o outdir -f filter_file	
-6. To rank variants:
-	python3.4 ngspipe.py -i input.txt -o outdir -f rank_file
+7. To rank variants:
+	python3.4 ngspipe.py -i input.txt -o outdir -r rank_file
+8. To save results in the formats of subject, proband, trios, family, 
+	all in one file or all formats
+	python3.4 ngspipe.py -i input.txt -o outdir \
+	--mode ['mono', 'singleton', 'proband', 'trios', 'family']
+	-m pedigree_file
 	
 -------
 Test:
