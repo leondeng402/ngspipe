@@ -150,52 +150,27 @@ def rank(dataframe, input):
             #print(line)
             if(line == '' or line.startswith('#')):
                 continue
-def retrieve_genotype(input): # return DataFrame
-    if(not input.endswith('.vcf')):
-        return None
-    with open(input, 'r')as f:
-        results=[]
+def retrieve_genotype(input, ids): # return DataFrame
+    results=[]
+    with open(input, 'r')as f:        
         for line in f.readlines():
-            line = line.strip()            
-            if(line.startswith('#CHROM')):
-                line = line.replace('#', '')
-                words=line.split('\t')
-                
-                header=words[:5]+words[9:]
-            elif(not line.startswith('##')):
-                words=line.split('\t')
-                variant=words[:5]
-                result=words[9:]
-                row=[]
-                for words in result:                    
-                    word=words.split(':')
-                    row.append(word[0])
-                results.append(variant+row)
-    #print(ids)
-    #print(results)
+            line = line.strip()    
+            words=line.split('\t')
+            variant=words[:5]
+            result=words[17:]
+            row=[]
+            for words in result:                    
+                word=words.split(':')
+                row.append(word[0])
+            results.append(variant+row)
+    header = config.basic_header+ids
+    
     genotype_df = pd.DataFrame(results, columns=header)
-    genotype_df[header] = genotype_df[header].astype(str)
+    
+    genotype_df[header]= genotype_df[header].astype(str)
     genotype_df.rename(columns={header[0]:'Chr', header[1]:'Start', \
                                 header[3]:'Ref', header[4]:'Alt' }, \
                        inplace=True)
     return genotype_df
                 
         
-def output_results(output, variant_df, genotype_df, mode, bedf): 
-    if(mode == 'mono'):
-        print('output the results in a single file')
-        df = pd.merge(variant_df, genotype_df, how='left', \
-                      on=['Chr', 'Start', 'Ref', 'Alt'])
-        df.to_csv(output, sep='\t', index=False)
-    elif(mode == 'proband'):
-        print('output the results of proband only ')
-    elif(mode == 'trios'):
-        print('output the results of trios and singleton')
-    elif(mode == 'family'):
-        print('output the results of family and singleton')
-    elif(mode == 'all'):
-        print('output the results in a single file, proband, trios and family')
-    else:
-        print('Error: ' + mode +' wrong mode')
-    
-    

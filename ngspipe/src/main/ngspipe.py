@@ -13,7 +13,7 @@ import argparse
 
 import pandas as pd
 
-import config, gene, variant, region, operation
+import config, gene, variant, region, operation, ino
 
 
 #####################################################################
@@ -30,16 +30,16 @@ parser.add_argument('-i', nargs='?', help='input file')
 parser.add_argument('-o', nargs='?', help='output directory')
 parser.add_argument('-r', nargs='+', help='output ranked list')
 parser.add_argument('-t', action='store_true', help='timing each operation')
-parser.add_argument('--mode', nargs='?', choices=['mono', 'proband', \
-                                                  'trios', 'family', 'all'],\
-                    default='mono',  help='output results in one file, a file '\
-                    + 'per proband, a file per family or files in all formats')
 parser.add_argument('-m', nargs='?', help='proband/trios/family '+\
                      'information file')
+parser.add_argument('--genetic_model', nargs='?', choices=['denovo', 'recessive', \
+                                                  'xlinked', 'other'],\
+                    default='denovo', help='choose the inheritance models')
 
 args=parser.parse_args()
-if(args.mode != 'mono' or args.mode != 'singleton'):
-    print('parse the family realtionship file')
+
+if(args.m != None):
+    print('Validate the pedigree file')
     #validate args.m file exists with correct format
     
 if(args.i == None or args.o == None):
@@ -73,23 +73,30 @@ if(infile.endswith('.vcf')):
     vcf_flag = True
     path = os.path.dirname(infile)+'/'
     base = os.path.basename(infile)
-    #  read the vcf file to get the chr, start, ref, alt
-    genotype_df = operation.retrieve_genotype(infile)
+    # fetch the header of chr, start, end, ref, alt and all sample ID
+    with open(infile, 'r')as f:        
+        for line in f.readlines():
+            line = line.strip()    
+            if(line.startswith('#CHROM')):            
+                line = line.replace('#', '')
+                words=line.split('\t')                
+                sampleid=words[9:]
+                break
     
-    md_str = 'convert2annovar.pl  -format vcf4 -allsample -withfreq ' \
+    md_str = 'convert2annovar.pl  -format vcf4 -allsample -withfreq -include '\
              + infile + ' -outfile ' + path+base.replace('.vcf', '.temp')
     cmd = shlex.split(md_str)
     #subprocess.call(cmd)
     p = subprocess.Popen(cmd)
-    p.wait()
-    #print(infile.replace('.vcf', '.temp'))
-    temp_df = pd.read_csv(path+base.replace('.vcf', '.temp'), header=None, \
-                          names=config.vcfoutput_header, sep='\t', \
-                          usecols=config.basic_header, low_memory=False)
+    p.wait()    # genotype_df as genotype dataframe
+    geno_df = operation.retrieve_genotype(path+base.replace('.vcf', '.temp'), \
+                                          sampleid)
     os.remove(path+base.replace('.vcf', '.temp'))
     infile = path+base.replace('.vcf', '.txt')
-    print(infile)
-    temp_df.to_csv(infile, header=False, sep='\t', index=False)    
+    
+    geno_df.to_csv(infile, header=False, sep='\t', index=False, \
+                   columns=config.basic_header)    
+    geno_df.to_csv(infile.replace('.txt', '.geno'), sep='\t', index=False)
     fieldnum=len(config.basic_header)
 else:
     ################################################################# 
@@ -186,12 +193,11 @@ df=df.fillna('.')
 
 
 if(args.o.endswith('/')):
-    file = args.o + '' + infile.split('/')[-1] + '.annotated'
+    outdir = args.o  
+    file = outdir + infile.split('/')[-1]  + '.annotated'
 else:
-    file = args.o + '/' + infile.split('/')[-1] + '.annotated'
-    
-operation.output_results(file, df, genotype_df, args.mode, args.m)
-
+    outdir = args.o + '/' 
+    file = outdir + infile.split('/')[-1] + '.annotated'
 
 #####################################################################
 #  consolidate gene entries from different sources
@@ -216,9 +222,16 @@ if(args.e):
         print(time.strftime('%H:%M:%S', time.gmtime(end_time-start_time)))
     
 
-
+if(vcf_flag):
+    ino.output_annotation(file, df, geno_df, 'singleton', args.m)
+    ino.output_annotation(file, df, geno_df, 'trios', args.m)
+    ino.output_annotation(file, df, geno_df, 'family', args.m)
+    #df.to_csv(file, sep='\t', index=False)
+else:
+    df.to_csv(file, sep='\t', index=False)
+    
 #####################################################################
-#  apply filters
+#  apply general filters
 #####################################################################
 print('\n**************************************************************')
 print('*    start to apply filter(s)                                *')
@@ -228,6 +241,30 @@ if(args.f != None):
         df = operation.apply_filter(df, filter)
 
     df.to_csv(file.replace('.annotated', '.filtered'), sep='\t', index=False)
+
+#####################################################################
+#  apply inheritance filter
+##################################################################### 
+print('\n**************************************************************')
+print('*    start to apply inheritance filter(s)                    *')
+print('**************************************************************')
+if(args.genetic_model=='denovo'):
+    ino.output_denovo(file, df, geno_df, 'singleton', args.m)
+    ino.output_denovo(file, df, geno_df, 'trios', args.m)
+    ino.output_denovo(file, df, geno_df, 'family', args.m)
+elif(args.genetic_model=='recessive'):
+    ino.output_recessive(file, df, geno_df, 'singleton', args.m)
+    ino.output_recessive(file, df, geno_df, 'trios', args.m)
+    ino.output_recessive(file, df, geno_df, 'family', args.m)
+elif(args.genetic_model=='xlinked'):
+    ino.output_xlinked(file, df, geno_df, 'singleton', args.m)
+    ino.output_xlinked(file, df, geno_df, 'trios', args.m)
+    ino.output_xlinked(file, df, geno_df, 'family', args.m)
+    
+elif(args.genetic_model=='other'):
+    pass
+else:
+    print("Error: genetic model is not implemented")
 
 
 #####################################################################
@@ -239,4 +276,5 @@ print('**************************************************************')
 if(args.r != None):
     for ranker in args.r:
         df = operation.rank(df, ranker)  
+
 

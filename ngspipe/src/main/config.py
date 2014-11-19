@@ -171,3 +171,9 @@ merged_custom_header = basic_header + refgene_header + region_header \
 final_header = table_anno_header[:26] + table_anno_header[31:34] \
                + table_anno_header[35:] \
                + g1k_use_header + cadd_header[1:3] + hgmd_use_header[3:]
+
+#####################################################################
+#  genetic models
+#####################################################################
+denovo_maf=0.001
+recessive_maf=0.005
